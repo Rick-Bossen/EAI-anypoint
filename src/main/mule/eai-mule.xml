@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="550debcc-7e3c-40a8-a70d-f592053426a8" >
+		<http:listener-connection host="localhost" port="8081" />
+	</http:listener-config>
+	
+	<jms:config name="JMS_Config">
+ <jms:active-mq-connection >
+  <jms:factory-configuration brokerUrl="tcp://localhost:61616" />
+ </jms:active-mq-connection>
+</jms:config>
+	<flow name="eai-muleFlow" doc:id="9fa18d01-ffeb-4f8e-ada6-eb67fc85ca2b" >
+		<jms:listener doc:name="On New Message" doc:id="56346a96-8d51-4174-8af4-83eb68375622" config-ref="JMS_Config" destination="QUEUE1" inboundContentType="application/xml">
+			<jms:consumer-type >
+				<jms:queue-consumer />
+			</jms:consumer-type>
+		</jms:listener>
+		<foreach doc:name="For Each" doc:id="624da9d0-a7de-4f42-b004-072359ae7717" collection="#[payload.Bericht.ETAs]">
+			<set-variable value='#[payload.halteNaam]' doc:name="Set Queue Destination" doc:id="77d86c28-1a96-49f2-ba5c-3744f8c9810c" variableName="queue_destination"/>
+			<ee:transform doc:name="Transform Message" doc:id="fc4fab4a-4a81-4037-9013-9363f52172fb" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	tijd: vars.rootMessage.payload.Bericht.tijd,
+    aankomsttijd: payload.aankomsttijd,
+    lijnNaam: vars.rootMessage.payload.Bericht.lijnNaam,
+    busID: vars.rootMessage.payload.Bericht.lijnNaam,
+    bedrijf: vars.rootMessage.payload.Bericht.bedrijf,
+	eindpunt: payload.halteNaam
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<jms:publish doc:name="Publish" doc:id="c1d94686-3997-4b83-9990-a43d79d27137" config-ref="JMS_Config" destination='#[vars.queue_destination]' >
+			</jms:publish>
+		</foreach>
+	</flow>
+</mule>
